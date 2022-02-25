@@ -112,7 +112,7 @@ def search_value(kvs, search_key):
 
 def main(document_type, file_name):
     handwritten_pages = {'CCW9': [2], 'CCDD': [2], 'CCAD': [2, 3], 'PUVC': [2, 3]}
-    pages = convert_from_path(file_name, 500)
+    pages = convert_from_path(file_name, 500, poppler_path=r".\poppler-0.68.0_x86\poppler-0.68.0\bin")
     for i in range(len(pages)):
         if i + 1 in handwritten_pages[document_type]:
             name = file_name[:-4] + '_' + str(i + 1) + '.jpg'
