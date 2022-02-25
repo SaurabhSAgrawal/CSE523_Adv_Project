@@ -2,6 +2,7 @@ import boto3
 import sys
 import re
 from pdf2image import convert_from_path
+import argparse
 
 
 def get_kv_map(file_name):
@@ -22,31 +23,6 @@ def get_kv_map(file_name):
 
     response = textract.analyze_document(Document={'Bytes': bytes_test}, FeatureTypes=['FORMS'])
 
-    # # Document
-    # s3BucketName = "textract-console-us-east-1-c85e0f69-be1d-4e20-a271-10940f0064b0"
-    # documentName = "CCDD_1.jpg"
-    # s3_connection = boto3.resource('s3', aws_access_key_id='',
-    #                                aws_secret_access_key='')
-    #
-    # s3_object = s3_connection.Object(s3BucketName, documentName)
-    # s3_response = s3_object.get()
-
-    # stream = io.BytesIO(s3_response['Body'].read())
-    # image = Image.open(stream)
-    # image_binary = stream.getvalue()
-    #
-    # response = textract.analyze_document(
-    #     Document={
-    #         'Bytes': image_binary,
-    #         'S3Object': {
-    #             'Bucket': s3BucketName,
-    #             'Name': documentName
-    #         }
-    #     },
-    #     FeatureTypes=['FORMS']
-    # )
-
-    # Get the text blocks
     blocks = response['Blocks']
 
     # get key and value maps
@@ -99,9 +75,13 @@ def get_text(result, blocks_map):
     return text
 
 
-def print_kvs(kvs):
-    for key, value in kvs.items():
-        print(key, ":", value)
+def print_kvs(kvs, file_name, page_number):
+    output_filename = file_name[:-4] + '_page' + str(page_number) + '.csv'
+    with open(output_filename, 'w') as file:
+        file.write('Key,Value\n')
+        for key, value in kvs.items():
+            file.write(key + ',' + value + '\n')
+    print("File " + output_filename + " saved")
 
 
 def search_value(kvs, search_key):
@@ -115,22 +95,18 @@ def main(document_type, file_name):
     pages = convert_from_path(file_name, 500)
     for i in range(len(pages)):
         if i + 1 in handwritten_pages[document_type]:
-            name = file_name[:-4] + '_' + str(i + 1) + '.jpg'
+            name = file_name[:-4] + '_page' + str(i + 1) + '.jpg'
             pages[i].save(name, 'JPEG')
             key_map, value_map, block_map = get_kv_map(name)
 
             # Get Key Value relationship
             kvs = get_kv_relationship(key_map, value_map, block_map)
-            print("\n\n== FOUND KEY : VALUE pairs ===\n")
-            print_kvs(kvs)
-
-    # Start searching a key value
-    # while input('\n Do you want to search a value for a key? (enter "n" for exit) ') != 'n':
-    #     search_key = input('\n Enter a search key:')
-    #     print('The value is:', search_value(kvs, search_key))
+            print_kvs(kvs, file_name, i+1)
 
 
 if __name__ == "__main__":
-    document_type = sys.argv[1]
-    file_name = sys.argv[2]
-    main(document_type, file_name)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--document_type", type=str, help="enter the document type")
+    parser.add_argument("--file_name", type=str, help="enter the file name")
+    args = parser.parse_args()
+    main(args.document_type, args.file_name)
