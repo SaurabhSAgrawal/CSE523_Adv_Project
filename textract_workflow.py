@@ -17,8 +17,8 @@ def get_kv_map(file_name):
     textract = boto3.client(
         'textract',
         region_name='us-east-1',
-        aws_access_key_id='AKIASYH5YO744A67DUDB',
-        aws_secret_access_key='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'
+        aws_access_key_id='',
+        aws_secret_access_key=''
     )
 
     response = textract.analyze_document(Document={'Bytes': bytes_test}, FeatureTypes=['FORMS'])
