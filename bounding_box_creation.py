@@ -29,7 +29,7 @@ def alignImages(im1, im2):
 
     # Draw top matches
     imMatches = cv2.drawMatches(im1, keypoints1, im2, keypoints2, matches, None)
-    # cv2.imwrite("matches.jpg", imMatches, [int(cv2.IMWRITE_JPEG_QUALITY), 200])
+    cv2.imwrite("matches.jpg", imMatches, [int(cv2.IMWRITE_JPEG_QUALITY), 200])
 
     # Extract location of good matches
     points1 = np.zeros((len(matches), 2), dtype=np.float32)
@@ -112,7 +112,8 @@ def create_bounding_box(document_type, file_name):
 
         # Crop part1
         image = Image.open(aligned_image_filename)
-        cropped = image.crop((160, 540, 1630, 955))
+        # cropped = image.crop((160, 540, 1630, 955))
+        cropped = image.crop((160, 540, 1630, 1630))
         file = file_name[:-4] + '_part1.jpg'
         cropped.save(file)
         key_map, value_map, block_map = get_kv_map(file)
@@ -152,3 +153,22 @@ def create_bounding_box(document_type, file_name):
         key_map, value_map, block_map = get_kv_map(file)
         kvs = get_kv_relationship(key_map, value_map, block_map)
         print_kvs(kvs, file_name, '_part3')
+    
+    if document_type == 'CCDD':
+        imReference = cv2.imread('CCDD_blank.jpg', cv2.IMREAD_COLOR)
+        im = cv2.imread(file_name, cv2.IMREAD_COLOR)
+        imReg, _ = alignImages(im, imReference)
+
+        # Align filled image
+        aligned_image_filename = file_name[:-4] + '_aligned.jpg'
+        cv2.imwrite(aligned_image_filename, imReg, [int(cv2.IMWRITE_JPEG_QUALITY), 200])
+
+        # Crop main part
+        image = Image.open(aligned_image_filename)
+        # cropped = image.crop((160, 540, 1630, 955))
+        cropped = image.crop((100, 690, 950, 1730))
+        file = file_name[:-4] + 'mainBox.jpg'
+        cropped.save(file)
+        key_map, value_map, block_map = get_kv_map(file)
+        kvs = get_kv_relationship(key_map, value_map, block_map)
+        print_kvs(kvs, file_name, 'mainBox')

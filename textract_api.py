@@ -1,15 +1,16 @@
 import boto3
 import re
+import time
 
 
 def get_kv_map(file_name):
-    with open(file_name, 'rb') as file:
-        file_test = file.read()
-        bytes_test = bytearray(file_test)
-        print('File loaded', file_name)
+    # with open(file_name, 'rb') as file:
+    #     file_test = file.read()
+    #     bytes_test = bytearray(file_test)
+    #     print('File loaded', file_name)
 
     # Amazon Textract client
-    # Update aws access key, secret key
+    # Update region_name, aws access key, secret key
     textract = boto3.client(
         'textract',
         region_name='us-east-1',
@@ -17,22 +18,46 @@ def get_kv_map(file_name):
         aws_secret_access_key=''
     )
 
-    response = textract.analyze_document(Document={'Bytes': bytes_test}, FeatureTypes=['FORMS'])
+    # Update aws access key, secret key, S3 bucket name
+    s3 = boto3.resource('s3',
+                        aws_access_key_id='',
+                        aws_secret_access_key=''
+                        )
+    bucket = 'textract-console-us-east-1-c85e0f69-be1d-4e20-a271-10940f0064b0'
 
-    blocks = response['Blocks']
+    s3.Bucket(bucket).upload_file(file_name, file_name)
+
+    # response = textract.analyze_document(Document={'Bytes': bytes_test}, FeatureTypes=['FORMS'])
+    response = textract.start_document_analysis(DocumentLocation={'S3Object': {'Bucket': bucket, 'Name': file_name}},
+                                                FeatureTypes=['FORMS'])
+    job_id = response['JobId']
+    response = textract.get_document_analysis(JobId=job_id)
+    while response['JobStatus'] == 'IN_PROGRESS':
+        response = textract.get_document_analysis(JobId=job_id)
+        # print(response['JobStatus'])
+        time.sleep(1)
+    pages = [response]
 
     # get key and value maps
     key_map = {}
     value_map = {}
     block_map = {}
-    for block in blocks:
-        block_id = block['Id']
-        block_map[block_id] = block
-        if block['BlockType'] == "KEY_VALUE_SET":
-            if 'KEY' in block['EntityTypes']:
-                key_map[block_id] = block
-            else:
-                value_map[block_id] = block
+
+    while nextToken := response.get('NextToken'):
+        response = textract.get_document_analysis(JobId=job_id, NextToken=nextToken)
+        pages.append(response)
+
+    for response in pages:
+        blocks = response['Blocks']
+
+        for block in blocks:
+            block_id = block['Id']
+            block_map[block_id] = block
+            if block['BlockType'] == "KEY_VALUE_SET":
+                if 'KEY' in block['EntityTypes']:
+                    key_map[block_id] = block
+                else:
+                    value_map[block_id] = block
 
     return key_map, value_map, block_map
 
@@ -76,7 +101,7 @@ def print_kvs(kvs, file_name, ext):
     with open(output_filename, 'w') as file:
         file.write('Key = Value\n')
         for key, value in kvs.items():
-            file.write(key + '=' + value + '\n')
+            file.write(key + '= ' + value + '\n')
     print("File " + output_filename + " saved")
 
 
